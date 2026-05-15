@@ -30,6 +30,7 @@ import { getFetchFn } from './proxy-fetch'
 import { getEffectiveProxyUrl } from './proxy-settings-service'
 import { getEnabledTools } from './chat-tool-registry'
 import { executeToolCalls } from './chat-tool-executor'
+import { scheduleAutoSaveConversation } from './chat-auto-save-service'
 
 /** 活跃的 AbortController 映射（conversationId → controller） */
 const activeControllers = new Map<string, AbortController>()
@@ -510,6 +511,7 @@ export async function sendMessage(
     })
   } finally {
     activeControllers.delete(conversationId)
+    scheduleAutoSaveConversation(conversationId)
   }
 }
 

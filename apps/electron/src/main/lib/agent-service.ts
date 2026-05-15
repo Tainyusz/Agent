@@ -30,6 +30,7 @@ import { ClaudeAgentAdapter, scanAndKillOrphanedClaudeSubprocesses } from './ada
 import { AgentEventBus } from './agent-event-bus'
 import { AgentOrchestrator } from './agent-orchestrator'
 import { getAgentSessionWorkspacePath, getWorkspaceFilesDir } from './config-paths'
+import { scheduleAutoSaveAgentSession } from './chat-auto-save-service'
 
 // ===== 实例创建 =====
 
@@ -120,6 +121,7 @@ export async function runAgent(
       })
     }
   } finally {
+    scheduleAutoSaveAgentSession(input.sessionId)
     // 仅在 orchestrator 已完成此会话时清理映射
     // 避免被拒绝的请求误删仍在运行的会话映射
     if (!orchestrator.isActive(input.sessionId)) {
@@ -195,6 +197,7 @@ export async function runAgentHeadless(
       wc.send(AGENT_IPC_CHANNELS.STREAM_COMPLETE, { sessionId: input.sessionId, messages: [], stoppedByUser: false })
     }
   } finally {
+    scheduleAutoSaveAgentSession(input.sessionId)
     if (!orchestrator.isActive(input.sessionId)) {
       sessionWebContents.delete(input.sessionId)
     }
@@ -267,13 +270,15 @@ export async function queueAgentMessage(
   input: AgentQueueMessageInput,
   _webContents: WebContents,
 ): Promise<string> {
-  return orchestrator.queueMessage(
+  const uuid = await orchestrator.queueMessage(
     input.sessionId,
     input.userMessage,
     undefined,
     input.uuid,
     { interrupt: input.interrupt },
   )
+  scheduleAutoSaveAgentSession(input.sessionId)
+  return uuid
 }
 
 // ===== 文件操作 =====

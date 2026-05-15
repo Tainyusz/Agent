@@ -50,6 +50,8 @@ import { BotHubSettings } from "./BotHubSettings";
 import { ShortcutSettings } from "./ShortcutSettings";
 import { VoiceInputSettings } from "./VoiceInputSettings";
 import { StorageSettings } from "./StorageSettings";
+import { AdminWechatAuthDialog } from "./AdminWechatAuthDialog";
+import type { AdminWechatAuthResult } from "./AdminWechatAuthDialog";
 
 /** 设置 Tab 定义 */
 interface TabItem {
@@ -142,11 +144,14 @@ export function SettingsPanel({
   const [closeRequested, setCloseRequested] = useAtom(settingsCloseRequestedAtom);
   const appMode = useAtomValue(appModeAtom);
   const hasEnvironmentIssues = useAtomValue(hasEnvironmentIssuesAtom);
+  const [modelConfigAuthorized, setModelConfigAuthorized] = React.useState(false);
+  const [adminAuthOpen, setAdminAuthOpen] = React.useState(false);
 
   /** 统一的退出拦截对话框状态 */
   type PendingAction = { type: 'tab'; tabId: SettingsTab } | { type: 'close' } | null
   const [pendingAction, setPendingAction] = React.useState<PendingAction>(null)
   const showNavDialog = pendingAction !== null
+  const visibleTab = activeTab === 'channels' && !modelConfigAuthorized ? 'general' : activeTab
 
   /** 执行待处理的操作 */
   const executePendingAction = (): void => {
@@ -171,6 +176,10 @@ export function SettingsPanel({
       setPendingAction({ type: 'tab', tabId })
       return
     }
+    if (tabId === 'channels' && !modelConfigAuthorized) {
+      setAdminAuthOpen(true)
+      return
+    }
     setActiveTab(tabId)
   }
 
@@ -190,6 +199,25 @@ export function SettingsPanel({
       setCloseRequested(false)
     }
   }, [closeRequested, activeTab, setCloseRequested])
+
+  React.useEffect(() => {
+    if (activeTab !== 'channels' || modelConfigAuthorized) return
+    setActiveTab('general')
+    setAdminAuthOpen(true)
+  }, [activeTab, modelConfigAuthorized, setActiveTab])
+
+  const handleAdminAuthOpenChange = (open: boolean): void => {
+    setAdminAuthOpen(open)
+    if (!open && activeTab === 'channels' && !modelConfigAuthorized) {
+      setActiveTab('general')
+    }
+  }
+
+  const handleAdminAuthenticated = (_result: AdminWechatAuthResult): void => {
+    setModelConfigAuthorized(true)
+    setAdminAuthOpen(false)
+    setActiveTab('channels')
+  }
 
   // Agent 模式时在渠道后插入 Agent Tab，工具 tab 两种模式都显示
   const tabs = React.useMemo(() => {
@@ -215,7 +243,7 @@ export function SettingsPanel({
   }, [appMode]);
 
   // 当前 tab 标题
-  const activeTabLabel = tabs.find((t) => t.id === activeTab)?.label ?? "设置";
+  const activeTabLabel = tabs.find((t) => t.id === visibleTab)?.label ?? "设置";
 
   return (
     <div className="flex flex-col h-full">
@@ -245,7 +273,7 @@ export function SettingsPanel({
                 onClick={() => handleTabChange(tab.id)}
                 className={cn(
                   "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
-                  activeTab === tab.id
+                  visibleTab === tab.id
                     ? "bg-muted text-foreground font-medium"
                     : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                 )}
@@ -262,7 +290,7 @@ export function SettingsPanel({
 
         {/* 右侧内容区域 */}
         <ScrollArea className="flex-1">
-          <div className="px-6 py-4">{renderTabContent(activeTab)}</div>
+          <div className="px-6 py-4">{renderTabContent(visibleTab)}</div>
         </ScrollArea>
       </div>
 
@@ -281,6 +309,12 @@ export function SettingsPanel({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AdminWechatAuthDialog
+        open={adminAuthOpen}
+        onOpenChange={handleAdminAuthOpenChange}
+        onAuthenticated={handleAdminAuthenticated}
+      />
     </div>
   );
 }

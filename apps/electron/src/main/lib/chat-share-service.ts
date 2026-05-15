@@ -28,12 +28,12 @@ const SHARE_PUBLIC_BASE_URL = 'https://open.wxqsai.com/'
 const IMAGE_PATH_PATTERN = /\/Users\/[^\r\n"'<>]*?\.(?:png|jpe?g|gif|webp)\b/gi
 const ATTACHED_FILES_BLOCK_PATTERN = /<attached_files>[\s\S]*?<\/attached_files>/gi
 
-interface ShareUser {
+export interface ShareUser {
   name: string
   avatar: string
 }
 
-interface ShareAttachment {
+export interface ShareAttachment {
   id: string
   filename: string
   mediaType: string
@@ -41,7 +41,7 @@ interface ShareAttachment {
   data?: string
 }
 
-interface ShareMessage {
+export interface ShareMessage {
   id: string
   role: ChatMessage['role']
   content: string
@@ -54,6 +54,24 @@ interface ShareMessage {
   stopped?: boolean
   error?: string
   attachments?: ShareAttachment[]
+}
+
+export interface ConversationSharePayload {
+  title: string
+  exportedAt: string
+  source: string
+  conversationId: string
+  user: ShareUser
+  messages: ShareMessage[]
+}
+
+export interface AgentSessionSharePayload {
+  title: string
+  exportedAt: string
+  source: string
+  sessionId: string
+  user: ShareUser
+  messages: ShareMessage[]
 }
 
 const MODEL_ICON_MAP: Array<[RegExp, string]> = [
@@ -494,7 +512,7 @@ function serializeSdkMessage(message: SDKMessage, index: number, user: ShareUser
   return null
 }
 
-export async function shareConversation(conversationId: string): Promise<ChatShareResult> {
+export function buildConversationSharePayload(conversationId: string): ConversationSharePayload {
   const conversation = listConversations().find((item) => item.id === conversationId)
   if (!conversation) {
     throw new Error(`对话不存在: ${conversationId}`)
@@ -506,7 +524,7 @@ export async function shareConversation(conversationId: string): Promise<ChatSha
   }
 
   const user = getShareUserProfile()
-  const payload = {
+  return {
     title: conversation.title || '无标题对话',
     exportedAt: new Date().toISOString(),
     source: 'proma',
@@ -514,6 +532,10 @@ export async function shareConversation(conversationId: string): Promise<ChatSha
     user,
     messages: messages.map((message) => serializeMessage(message, user)),
   }
+}
+
+export async function shareConversation(conversationId: string): Promise<ChatShareResult> {
+  const payload = buildConversationSharePayload(conversationId)
 
   const response = await fetch(SHARE_UPLOAD_URL, {
     method: 'POST',
@@ -547,28 +569,7 @@ export async function shareConversation(conversationId: string): Promise<ChatSha
 }
 
 export async function shareAgentSession(sessionId: string): Promise<ChatShareResult> {
-  const session = getAgentSessionMeta(sessionId)
-  if (!session) {
-    throw new Error(`Agent 会话不存在: ${sessionId}`)
-  }
-
-  const user = getShareUserProfile()
-  const messages = getAgentSessionSDKMessages(sessionId)
-    .map((message, index) => serializeSdkMessage(message, index, user))
-    .filter((message): message is ShareMessage => Boolean(message))
-
-  if (messages.length === 0) {
-    throw new Error('当前 Agent 会话没有可分享的消息')
-  }
-
-  const payload = {
-    title: session.title || '无标题 Agent 会话',
-    exportedAt: new Date().toISOString(),
-    source: 'proma-agent',
-    sessionId,
-    user,
-    messages,
-  }
+  const payload = buildAgentSessionSharePayload(sessionId)
 
   const response = await fetch(SHARE_UPLOAD_URL, {
     method: 'POST',
@@ -598,5 +599,30 @@ export async function shareAgentSession(sessionId: string): Promise<ChatShareRes
   return {
     id,
     url: buildPublicUrl(id),
+  }
+}
+
+export function buildAgentSessionSharePayload(sessionId: string): AgentSessionSharePayload {
+  const session = getAgentSessionMeta(sessionId)
+  if (!session) {
+    throw new Error(`Agent 会话不存在: ${sessionId}`)
+  }
+
+  const user = getShareUserProfile()
+  const messages = getAgentSessionSDKMessages(sessionId)
+    .map((message, index) => serializeSdkMessage(message, index, user))
+    .filter((message): message is ShareMessage => Boolean(message))
+
+  if (messages.length === 0) {
+    throw new Error('当前 Agent 会话没有可分享的消息')
+  }
+
+  return {
+    title: session.title || '无标题 Agent 会话',
+    exportedAt: new Date().toISOString(),
+    source: 'proma-agent',
+    sessionId,
+    user,
+    messages,
   }
 }

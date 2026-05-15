@@ -138,6 +138,12 @@ import {
 import { sendMessage, stopGeneration, generateTitle } from './lib/chat-service'
 import { shareConversation, shareAgentSession } from './lib/chat-share-service'
 import {
+  scheduleAutoSaveAgentSession,
+  scheduleAutoSaveConversation,
+  deleteAutoSavedAgentSession,
+  deleteAutoSavedConversation,
+} from './lib/chat-auto-save-service'
+import {
   saveAttachment,
   readAttachmentAsBase64,
   deleteAttachment,
@@ -665,7 +671,9 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(
     CHAT_IPC_CHANNELS.UPDATE_TITLE,
     async (_, id: string, title: string): Promise<ConversationMeta> => {
-      return updateConversationMeta(id, { title })
+      const updated = updateConversationMeta(id, { title })
+      scheduleAutoSaveConversation(id)
+      return updated
     }
   )
 
@@ -673,7 +681,9 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(
     CHAT_IPC_CHANNELS.UPDATE_MODEL,
     async (_, id: string, modelId: string, channelId: string): Promise<ConversationMeta> => {
-      return updateConversationMeta(id, { modelId, channelId })
+      const updated = updateConversationMeta(id, { modelId, channelId })
+      scheduleAutoSaveConversation(id)
+      return updated
     }
   )
 
@@ -681,7 +691,10 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(
     CHAT_IPC_CHANNELS.DELETE_CONVERSATION,
     async (_, id: string): Promise<void> => {
-      return deleteConversation(id)
+      deleteConversation(id)
+      deleteAutoSavedConversation(id).catch((error) => {
+        console.warn('[聊天自动保存] 删除远端记录失败:', error)
+      })
     }
   )
 
@@ -747,7 +760,9 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(
     CHAT_IPC_CHANNELS.CREATE_WELCOME_CONVERSATION,
     async (): Promise<ConversationMeta | null> => {
-      return createWelcomeConversation()
+      const conversation = createWelcomeConversation()
+      if (conversation) scheduleAutoSaveConversation(conversation.id)
+      return conversation
     }
   )
 
@@ -772,7 +787,9 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(
     CHAT_IPC_CHANNELS.DELETE_MESSAGE,
     async (_, conversationId: string, messageId: string): Promise<ChatMessage[]> => {
-      return deleteMessage(conversationId, messageId)
+      const messages = deleteMessage(conversationId, messageId)
+      scheduleAutoSaveConversation(conversationId)
+      return messages
     }
   )
 
@@ -785,11 +802,13 @@ export function registerIpcHandlers(): void {
       messageId: string,
       preserveFirstMessageAttachments?: boolean,
     ): Promise<ChatMessage[]> => {
-      return truncateMessagesFrom(
+      const messages = truncateMessagesFrom(
         conversationId,
         messageId,
         preserveFirstMessageAttachments ?? false,
       )
+      scheduleAutoSaveConversation(conversationId)
+      return messages
     }
   )
 
@@ -797,7 +816,9 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(
     CHAT_IPC_CHANNELS.UPDATE_CONTEXT_DIVIDERS,
     async (_, conversationId: string, dividers: string[]): Promise<ConversationMeta> => {
-      return updateContextDividers(conversationId, dividers)
+      const updated = updateContextDividers(conversationId, dividers)
+      scheduleAutoSaveConversation(conversationId)
+      return updated
     }
   )
 
@@ -1165,7 +1186,9 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(
     AGENT_IPC_CHANNELS.UPDATE_TITLE,
     async (_, id: string, title: string): Promise<AgentSessionMeta> => {
-      return updateAgentSessionMeta(id, { title })
+      const updated = updateAgentSessionMeta(id, { title })
+      scheduleAutoSaveAgentSession(id)
+      return updated
     }
   )
 
@@ -1188,7 +1211,10 @@ export function registerIpcHandlers(): void {
       askUserService.clearSessionPending(id)
       // 清理 ExitPlanMode 服务中的待处理请求
       exitPlanService.clearSessionPending(id)
-      return deleteAgentSession(id)
+      deleteAgentSession(id)
+      deleteAutoSavedAgentSession(id).catch((error) => {
+        console.warn('[Agent 自动保存] 删除远端记录失败:', error)
+      })
     }
   )
 
@@ -1197,6 +1223,7 @@ export function registerIpcHandlers(): void {
     AGENT_IPC_CHANNELS.MIGRATE_CHAT_TO_AGENT,
     async (_, conversationId: string, agentSessionId: string): Promise<void> => {
       migrateChatToAgentSession(conversationId, agentSessionId)
+      scheduleAutoSaveAgentSession(agentSessionId)
     }
   )
 
@@ -1213,7 +1240,9 @@ export function registerIpcHandlers(): void {
       if (newPinned && current.archived) {
         updates.archived = false
       }
-      return updateAgentSessionMeta(id, updates)
+      const updated = updateAgentSessionMeta(id, updates)
+      scheduleAutoSaveAgentSession(id)
+      return updated
     }
   )
 
@@ -1229,7 +1258,9 @@ export function registerIpcHandlers(): void {
       if (newManualWorking && current.archived) {
         updates.archived = false
       }
-      return updateAgentSessionMeta(id, updates)
+      const updated = updateAgentSessionMeta(id, updates)
+      scheduleAutoSaveAgentSession(id)
+      return updated
     }
   )
 
@@ -1246,7 +1277,9 @@ export function registerIpcHandlers(): void {
       if (newArchived && current.pinned) {
         updates.pinned = false
       }
-      return updateAgentSessionMeta(id, updates)
+      const updated = updateAgentSessionMeta(id, updates)
+      scheduleAutoSaveAgentSession(id)
+      return updated
     }
   )
 
@@ -1294,7 +1327,9 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(
     AGENT_IPC_CHANNELS.FORK_SESSION,
     async (_, input: ForkSessionInput): Promise<AgentSessionMeta> => {
-      return forkAgentSession(input)
+      const session = await forkAgentSession(input)
+      scheduleAutoSaveAgentSession(session.id)
+      return session
     }
   )
 
@@ -1302,10 +1337,12 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(
     AGENT_IPC_CHANNELS.REWIND_SESSION,
     async (_, input: RewindSessionInput): Promise<RewindSessionResult> => {
-      return rewindAgentSession(
+      const result = await rewindAgentSession(
         input.sessionId,
         input.assistantMessageUuid,
       )
+      scheduleAutoSaveAgentSession(input.sessionId)
+      return result
     }
   )
 
