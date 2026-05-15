@@ -376,10 +376,8 @@ function BrandAboutCard(): React.ReactElement {
   return (
     <SettingsCard divided={false}>
       <div className="p-6 flex flex-col items-center gap-5 text-center">
-        <p className="text-sm leading-7 text-muted-foreground max-w-lg">
-          无限轻松基于开源项目 Proma 进行开发，新增众多功能和优化。
-          从 9.11 版本起，无限轻松将由开发者孙田宇宇哥进行开发。
-          无限轻松品牌由宇哥在 2023 年创办，无限轻松是 Agent 时代的先驱项目。
+        <p className="text-sm leading-7 text-muted-foreground max-w-lg whitespace-pre-line">
+          {'无限轻松是 Agent 时代的先驱项目\n现在无限轻松每周都会更新\n有问题反馈可扫码联系宇哥'}
         </p>
 
         <div className="flex flex-col items-center gap-2.5">
