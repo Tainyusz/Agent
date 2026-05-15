@@ -3,6 +3,7 @@
 
 appId: com.wuxianqingsong.app
 productName: 无限轻松
+artifactName: Agent-${version}-${arch}.${ext}
 copyright: Copyright © 2024-2026 无限轻松
 
 # Electron 版本（CI 环境 bun workspace 下无法自动检测，需显式指定）
@@ -140,5 +141,5 @@ nsis:
 # ============================================
 publish:
   provider: github
-  owner: ErlichLiu
-  repo: Proma
+  owner: Tainyusz
+  repo: Agent

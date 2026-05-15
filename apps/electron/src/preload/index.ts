@@ -6,7 +6,7 @@
  */
 
 import { contextBridge, ipcRenderer, webUtils } from 'electron'
-import { IPC_CHANNELS, CHANNEL_IPC_CHANNELS, CHAT_IPC_CHANNELS, AGENT_IPC_CHANNELS, ENVIRONMENT_IPC_CHANNELS, INSTALLER_IPC_CHANNELS, PROXY_IPC_CHANNELS, GITHUB_RELEASE_IPC_CHANNELS, SYSTEM_PROMPT_IPC_CHANNELS, MEMORY_IPC_CHANNELS, CHAT_TOOL_IPC_CHANNELS, FEISHU_IPC_CHANNELS, DINGTALK_IPC_CHANNELS, WECHAT_IPC_CHANNELS } from '@proma/shared'
+import { IPC_CHANNELS, CHANNEL_IPC_CHANNELS, CHAT_IPC_CHANNELS, AGENT_IPC_CHANNELS, ENVIRONMENT_IPC_CHANNELS, INSTALLER_IPC_CHANNELS, PROXY_IPC_CHANNELS, GITHUB_RELEASE_IPC_CHANNELS, APP_UPDATE_IPC_CHANNELS, SYSTEM_PROMPT_IPC_CHANNELS, MEMORY_IPC_CHANNELS, CHAT_TOOL_IPC_CHANNELS, FEISHU_IPC_CHANNELS, DINGTALK_IPC_CHANNELS, WECHAT_IPC_CHANNELS } from '@proma/shared'
 import { USER_PROFILE_IPC_CHANNELS, SETTINGS_IPC_CHANNELS, APP_ICON_IPC_CHANNELS, DOCK_BADGE_IPC_CHANNELS, STORAGE_IPC_CHANNELS } from '../types'
 import type {
   RuntimeStatus,
@@ -59,6 +59,7 @@ import type {
   InstallerDownloadResult,
   InstallerProgressPayload,
   ProxyConfig,
+  AppUpdateState,
   SystemProxyDetectResult,
   GitHubRelease,
   GitHubReleaseListOptions,
@@ -708,6 +709,12 @@ export interface ElectronAPI {
   getLatestRelease: () => Promise<GitHubRelease | null>
   listReleases: (options?: GitHubReleaseListOptions) => Promise<GitHubRelease[]>
   getReleaseByTag: (tag: string) => Promise<GitHubRelease | null>
+
+  // 应用自动更新
+  getAppUpdateState: () => Promise<AppUpdateState>
+  checkForAppUpdate: (manual?: boolean) => Promise<AppUpdateState>
+  installDownloadedUpdate: () => Promise<void>
+  onAppUpdateStateChanged: (callback: (state: AppUpdateState) => void) => () => void
 
   // 工作区文件变化通知
   onCapabilitiesChanged: (callback: () => void) => () => void
@@ -1703,6 +1710,25 @@ const electronAPI: ElectronAPI = {
 
   getReleaseByTag: (tag) => {
     return ipcRenderer.invoke(GITHUB_RELEASE_IPC_CHANNELS.GET_RELEASE_BY_TAG, tag)
+  },
+
+  // 应用自动更新
+  getAppUpdateState: () => {
+    return ipcRenderer.invoke(APP_UPDATE_IPC_CHANNELS.GET_STATE)
+  },
+
+  checkForAppUpdate: (manual = true) => {
+    return ipcRenderer.invoke(APP_UPDATE_IPC_CHANNELS.CHECK, manual)
+  },
+
+  installDownloadedUpdate: () => {
+    return ipcRenderer.invoke(APP_UPDATE_IPC_CHANNELS.INSTALL)
+  },
+
+  onAppUpdateStateChanged: (callback: (state: AppUpdateState) => void) => {
+    const listener = (_: unknown, state: AppUpdateState): void => callback(state)
+    ipcRenderer.on(APP_UPDATE_IPC_CHANNELS.STATE_CHANGED, listener)
+    return () => { ipcRenderer.removeListener(APP_UPDATE_IPC_CHANNELS.STATE_CHANGED, listener) }
   },
 
   // ===== 飞书集成 =====

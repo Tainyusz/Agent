@@ -53,7 +53,7 @@ import { feishuBotStatesAtom } from './atoms/feishu-atoms'
 import { dingtalkBotStatesAtom } from './atoms/dingtalk-atoms'
 import { currentConversationIdAtom, channelsAtom, channelsLoadedAtom, selectedModelAtom } from './atoms/chat-atoms'
 import { appModeAtom } from './atoms/app-mode'
-import type { FeishuBotBridgeState, FeishuBridgeState, FeishuNotificationSentPayload, DingTalkBotBridgeState, DingTalkBridgeState } from '@proma/shared'
+import type { AppUpdateState, FeishuBotBridgeState, FeishuBridgeState, FeishuNotificationSentPayload, DingTalkBotBridgeState, DingTalkBridgeState } from '@proma/shared'
 import { Toaster } from './components/ui/sonner'
 import { toast } from 'sonner'
 import { diffCapabilities, migratePermissionMode } from '@proma/shared'
@@ -68,6 +68,7 @@ import 'katex/dist/katex.min.css'
 const isQuickTaskWindow = new URLSearchParams(window.location.search).get('window') === 'quick-task'
 const isVoiceDictationWindow = new URLSearchParams(window.location.search).get('window') === 'voice-dictation'
 const isDetachedPreviewWindow = new URLSearchParams(window.location.search).get('window') === 'detached-preview'
+const shownUpdateToastKeys = new Set<string>()
 
 /**
  * 主题初始化组件
@@ -121,6 +122,87 @@ function ThemeInitializer(): null {
     applyThemeToDOM(themeMode, themeStyle, systemIsDark)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [themeSignature])
+
+  return null
+}
+
+function formatUpdatePercent(state: AppUpdateState): string {
+  const percent = state.progress?.percent
+  if (typeof percent !== 'number' || Number.isNaN(percent)) return ''
+  return `${Math.max(0, Math.min(100, Math.round(percent)))}%`
+}
+
+function UpdateNotificationsInitializer(): null {
+  useEffect(() => {
+    const handleState = (state: AppUpdateState): void => {
+      const version = state.updateInfo?.version
+
+      if (state.status === 'checking' && state.manual) {
+        toast.loading('正在检查更新...', { id: 'app-update-check' })
+        return
+      }
+
+      if (state.status !== 'checking') {
+        toast.dismiss('app-update-check')
+      }
+
+      if (state.status === 'available' && version) {
+        const key = `available:${version}`
+        if (!shownUpdateToastKeys.has(key)) {
+          shownUpdateToastKeys.add(key)
+          toast.info(`发现新版本 ${version}`, {
+            id: 'app-update-available',
+            description: '更新包将自动下载，下载完成后可重启安装。',
+          })
+        }
+        return
+      }
+
+      if (state.status === 'downloading') {
+        toast.loading(`正在下载更新${version ? ` ${version}` : ''}`, {
+          id: 'app-update-download',
+          description: formatUpdatePercent(state),
+        })
+        return
+      }
+
+      if (state.status === 'downloaded') {
+        toast.dismiss('app-update-download')
+        const key = `downloaded:${version ?? 'unknown'}`
+        if (!shownUpdateToastKeys.has(key)) {
+          shownUpdateToastKeys.add(key)
+          toast.success(`新版本${version ? ` ${version}` : ''} 已下载`, {
+            duration: Infinity,
+            description: '重启应用后会自动完成安装。',
+            action: {
+              label: '立即重启',
+              onClick: () => {
+                window.electronAPI.installDownloadedUpdate().catch((error) => {
+                  toast.error('安装更新失败', { description: String(error) })
+                })
+              },
+            },
+          })
+        }
+        return
+      }
+
+      if (state.status === 'not-available' && state.manual) {
+        toast.success('当前已是最新版本')
+        return
+      }
+
+      if (state.status === 'error' && state.manual) {
+        toast.error('检查更新失败', {
+          description: state.error || '请稍后重试',
+        })
+      }
+    }
+
+    const cleanup = window.electronAPI.onAppUpdateStateChanged(handleState)
+    window.electronAPI.getAppUpdateState().then(handleState).catch(console.error)
+    return cleanup
+  }, [])
 
   return null
 }
@@ -742,6 +824,7 @@ if (isQuickTaskWindow) {
       <NotificationsInitializer />
       <DockBadgeInitializer />
       <UiPreferencesInitializer />
+      <UpdateNotificationsInitializer />
       <ChatListenersInitializer />
       <AgentListenersInitializer />
       <ChatToolInitializer />

@@ -8,7 +8,7 @@ import { ipcMain, nativeTheme, shell, dialog, BrowserWindow, app } from 'electro
 import { join, resolve, sep } from 'node:path'
 import { existsSync, realpathSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { IPC_CHANNELS, CHANNEL_IPC_CHANNELS, CHAT_IPC_CHANNELS, AGENT_IPC_CHANNELS, ENVIRONMENT_IPC_CHANNELS, INSTALLER_IPC_CHANNELS, PROXY_IPC_CHANNELS, GITHUB_RELEASE_IPC_CHANNELS, SYSTEM_PROMPT_IPC_CHANNELS, MEMORY_IPC_CHANNELS, CHAT_TOOL_IPC_CHANNELS, FEISHU_IPC_CHANNELS, DINGTALK_IPC_CHANNELS, WECHAT_IPC_CHANNELS } from '@proma/shared'
+import { IPC_CHANNELS, CHANNEL_IPC_CHANNELS, CHAT_IPC_CHANNELS, AGENT_IPC_CHANNELS, ENVIRONMENT_IPC_CHANNELS, INSTALLER_IPC_CHANNELS, PROXY_IPC_CHANNELS, GITHUB_RELEASE_IPC_CHANNELS, APP_UPDATE_IPC_CHANNELS, SYSTEM_PROMPT_IPC_CHANNELS, MEMORY_IPC_CHANNELS, CHAT_TOOL_IPC_CHANNELS, FEISHU_IPC_CHANNELS, DINGTALK_IPC_CHANNELS, WECHAT_IPC_CHANNELS } from '@proma/shared'
 import { USER_PROFILE_IPC_CHANNELS, SETTINGS_IPC_CHANNELS, QUICK_TASK_IPC_CHANNELS, VOICE_DICTATION_IPC_CHANNELS, APP_ICON_IPC_CHANNELS, DOCK_BADGE_IPC_CHANNELS, STORAGE_IPC_CHANNELS } from '../types'
 import type {
   QuickTaskSubmitInput,
@@ -66,6 +66,7 @@ import type {
   InstallerDownloadRequest,
   InstallerDownloadResult,
   ProxyConfig,
+  AppUpdateState,
   SystemProxyDetectResult,
   GitHubRelease,
   GitHubReleaseListOptions,
@@ -225,6 +226,11 @@ import {
   listReleases as listGitHubReleases,
   getReleaseByTag,
 } from './lib/github-release-service'
+import {
+  checkForAppUpdate,
+  getAppUpdateState,
+  installDownloadedUpdate,
+} from './lib/app-update-service'
 import { watchAttachedDirectory, unwatchAttachedDirectory } from './lib/workspace-watcher'
 import {
   getFeishuConfig,
@@ -2656,6 +2662,29 @@ export function registerIpcHandlers(): void {
     GITHUB_RELEASE_IPC_CHANNELS.GET_RELEASE_BY_TAG,
     async (_, tag: string): Promise<GitHubRelease | null> => {
       return getReleaseByTag(tag)
+    }
+  )
+
+  // ===== 应用自动更新 =====
+
+  ipcMain.handle(
+    APP_UPDATE_IPC_CHANNELS.GET_STATE,
+    async (): Promise<AppUpdateState> => {
+      return getAppUpdateState()
+    }
+  )
+
+  ipcMain.handle(
+    APP_UPDATE_IPC_CHANNELS.CHECK,
+    async (_, manual = true): Promise<AppUpdateState> => {
+      return checkForAppUpdate(manual)
+    }
+  )
+
+  ipcMain.handle(
+    APP_UPDATE_IPC_CHANNELS.INSTALL,
+    async (): Promise<void> => {
+      installDownloadedUpdate()
     }
   )
 

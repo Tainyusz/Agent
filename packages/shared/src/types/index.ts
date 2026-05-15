@@ -36,6 +36,9 @@ export * from './installer'
 // GitHub Release 相关类型
 export * from './github'
 
+// 应用自动更新相关类型
+export * from './app-update'
+
 // 系统提示词相关类型
 export * from './system-prompt'
 

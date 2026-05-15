@@ -70,6 +70,7 @@ import { stopAllGenerations } from './lib/chat-service'
 import { startWorkspaceWatcher, stopWorkspaceWatcher } from './lib/workspace-watcher'
 import { startChatToolsWatcher, stopChatToolsWatcher } from './lib/chat-tools-watcher'
 import { getIsQuitting, setQuitting } from './lib/app-lifecycle'
+import { initializeAppUpdater, scheduleAutoUpdateCheck } from './lib/app-update-service'
 import { registerBridge, startAllBridges, stopAllBridges } from './lib/bridge-registry'
 import { feishuBridgeManager } from './lib/feishu-bridge-manager'
 import { getFeishuMultiBotConfig } from './lib/feishu-config'
@@ -369,6 +370,8 @@ app.whenReady().then(async () => {
 
   // Create main window (will be shown when ready)
   createWindow()
+  initializeAppUpdater(getMainWindow)
+  scheduleAutoUpdateCheck()
 
   // Create system tray icon
   createTray({

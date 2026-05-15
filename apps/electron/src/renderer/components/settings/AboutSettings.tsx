@@ -7,7 +7,8 @@
 import * as React from 'react'
 import { useAtomValue, useSetAtom } from 'jotai'
 import { RefreshCw, Loader2, AlertCircle, Info, Terminal } from 'lucide-react'
-import type { EnvironmentCheckResult, RuntimeStatus } from '@proma/shared'
+import { toast } from 'sonner'
+import type { AppUpdateState, EnvironmentCheckResult, RuntimeStatus } from '@proma/shared'
 import {
   SettingsSection,
   SettingsCard,
@@ -25,6 +26,112 @@ import wechatQrCode from '../../../../../../宇哥微信.jpg'
 /** 从 package.json 构建时由 Vite define 注入 */
 declare const __APP_VERSION__: string
 const APP_VERSION = __APP_VERSION__
+
+function updateStatusText(state: AppUpdateState | null): string {
+  if (!state) return '尚未检查'
+  switch (state.status) {
+    case 'checking':
+      return '正在检查更新'
+    case 'available':
+      return `发现新版本 ${state.updateInfo?.version ?? ''}`.trim()
+    case 'downloading':
+      return `正在下载 ${Math.round(state.progress?.percent ?? 0)}%`
+    case 'downloaded':
+      return `新版本 ${state.updateInfo?.version ?? ''} 已下载`.trim()
+    case 'not-available':
+      return '当前已是最新版本'
+    case 'error':
+      return state.error || '检查更新失败'
+    default:
+      return '尚未检查'
+  }
+}
+
+function AppUpdateCard(): React.ReactElement {
+  const [state, setState] = React.useState<AppUpdateState | null>(null)
+  const [isChecking, setIsChecking] = React.useState(false)
+
+  React.useEffect(() => {
+    let mounted = true
+    window.electronAPI.getAppUpdateState().then((next) => {
+      if (mounted) setState(next)
+    }).catch(console.error)
+    const cleanup = window.electronAPI.onAppUpdateStateChanged((next) => {
+      setState(next)
+    })
+    return () => {
+      mounted = false
+      cleanup()
+    }
+  }, [])
+
+  const isBusy = isChecking || state?.status === 'checking' || state?.status === 'downloading'
+  const canInstall = state?.status === 'downloaded'
+  const progress = Math.max(0, Math.min(100, state?.progress?.percent ?? 0))
+
+  const handleCheck = async () => {
+    setIsChecking(true)
+    try {
+      const next = await window.electronAPI.checkForAppUpdate(true)
+      setState(next)
+    } catch (error) {
+      toast.error('检查更新失败', { description: String(error) })
+    } finally {
+      setIsChecking(false)
+    }
+  }
+
+  const handleInstall = async () => {
+    try {
+      await window.electronAPI.installDownloadedUpdate()
+    } catch (error) {
+      toast.error('安装更新失败', { description: String(error) })
+    }
+  }
+
+  return (
+    <SettingsCard>
+      <div className="p-4 border-b">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-medium">自动更新</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              新版本会自动下载，下载完成后重启应用安装。
+            </p>
+          </div>
+          <button
+            onClick={canInstall ? handleInstall : handleCheck}
+            disabled={isBusy && !canInstall}
+            className="inline-flex items-center gap-1.5 rounded-md bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground hover:bg-secondary/80 transition-colors disabled:opacity-50"
+          >
+            {isBusy && !canInstall ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+            {canInstall ? '重启安装' : isBusy ? '检查中...' : '检查更新'}
+          </button>
+        </div>
+      </div>
+      <div className="p-4 space-y-3">
+        <SettingsRow label="当前版本">
+          <span className="text-sm text-muted-foreground font-mono">{APP_VERSION}</span>
+        </SettingsRow>
+        <SettingsRow label="更新状态">
+          <span className="text-sm text-muted-foreground">{updateStatusText(state)}</span>
+        </SettingsRow>
+        {state?.status === 'downloading' && (
+          <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full rounded-full bg-primary transition-all"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        )}
+      </div>
+    </SettingsCard>
+  )
+}
 
 /** 环境检测卡片 */
 function EnvironmentCard(): React.ReactElement {
@@ -302,6 +409,8 @@ export function AboutSettings(): React.ReactElement {
           <span className="text-sm text-muted-foreground">Electron + React</span>
         </SettingsRow>
       </SettingsCard>
+
+      <AppUpdateCard />
 
       {/* 环境检测卡片 */}
       <EnvironmentCard />
