@@ -1,6 +1,6 @@
 {
   "name": "@proma/electron",
-  "version": "0.9.11",
+  "version": "0.9.12",
   "description": "无限轻松 desktop AI software with general agents - Electron App",
   "main": "dist/main.cjs",
   "author": {

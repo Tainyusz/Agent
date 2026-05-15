@@ -24,8 +24,8 @@ asar: false
 npmRebuild: false
 
 # 没有 Developer ID 证书时，electron-builder 会跳过完整签名，macOS 可能把应用判定为“已损坏”。
-# 这里先做 ad-hoc 签名，保证本地/内部测试包的 bundle 结构完整；如果后续配置正式证书，
-# electron-builder 的正式签名步骤会继续覆盖这个 ad-hoc 签名。
+# afterSign 仅在没有正式 Developer ID/Apple 签名时做 ad-hoc 签名，保证本地/内部测试包的 bundle 结构完整。
+# 正式分发和自动更新必须使用同一个 Developer ID 证书签名。
 afterPack: scripts/after-pack.cjs
 afterSign: scripts/after-sign.cjs
 
@@ -136,10 +136,9 @@ nsis:
 
 # ============================================
 # 发布配置
-# 每个平台的 build job 通过 --publish always 直接上传到 GitHub Release。
-# electron-builder 会自动创建/复用 Release，并在多架构并行上传时合并 latest-mac.yml。
+# 自动更新文件需要上传到这个静态目录：
+# https://open.wxqsai.com/updates/agent/mac/
 # ============================================
 publish:
-  provider: github
-  owner: Tainyusz
-  repo: Agent
+  provider: generic
+  url: https://open.wxqsai.com/updates/agent/mac

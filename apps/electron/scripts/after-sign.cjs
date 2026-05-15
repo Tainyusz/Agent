@@ -7,6 +7,23 @@ function run(command, args, options = {}) {
   execFileSync(command, args, { stdio: 'inherit', ...options })
 }
 
+function readCodeSignature(appPath) {
+  try {
+    return execFileSync('codesign', ['-dv', '--verbose=4', appPath], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+  } catch (error) {
+    return `${error.stdout || ''}${error.stderr || ''}`
+  }
+}
+
+function hasDeveloperIdentity(signatureOutput) {
+  return /Authority=Developer ID Application:/i.test(signatureOutput) ||
+    /Authority=Apple Distribution:/i.test(signatureOutput) ||
+    /TeamIdentifier=(?!not set)/i.test(signatureOutput)
+}
+
 exports.default = async function afterSign(context) {
   if (context.electronPlatformName !== 'darwin') return
 
@@ -18,6 +35,12 @@ exports.default = async function afterSign(context) {
 
   if (!existsSync(entitlements)) {
     console.warn('[afterSign] Skipping macOS ad-hoc signing: entitlements file is missing.')
+    return
+  }
+
+  const signatureOutput = readCodeSignature(appPath)
+  if (hasDeveloperIdentity(signatureOutput)) {
+    console.log(`[afterSign] Keeping existing Developer ID signature: ${appPath}`)
     return
   }
 

@@ -1,8 +1,8 @@
 /**
  * 应用自动更新服务
  *
- * 基于 electron-updater 读取打包产物中的 app-update.yml。
- * 发布源由 electron-builder.yml 的 publish 配置生成。
+ * 基于 electron-updater 检查更新。
+ * 客户端使用自有域名上的 generic 更新源，避免 GitHub releases.atom 在国内网络下不稳定。
  */
 
 import { app, BrowserWindow } from 'electron'
@@ -11,6 +11,8 @@ import type { ProgressInfo, UpdateDownloadedEvent, UpdateInfo } from 'electron-u
 import { APP_UPDATE_IPC_CHANNELS } from '@proma/shared'
 import type { AppUpdateInfo, AppUpdateProgress, AppUpdateState } from '@proma/shared'
 import { setQuitting } from './app-lifecycle'
+
+const APP_UPDATE_FEED_URL = 'https://open.wxqsai.com/updates/agent/mac'
 
 let windowProvider: (() => BrowserWindow | null) | null = null
 let initialized = false
@@ -71,6 +73,10 @@ export function initializeAppUpdater(getWindow: () => BrowserWindow | null): voi
   autoUpdater.autoInstallOnAppQuit = false
   autoUpdater.allowPrerelease = false
   autoUpdater.logger = console
+  autoUpdater.setFeedURL({
+    provider: 'generic',
+    url: APP_UPDATE_FEED_URL,
+  })
 
   autoUpdater.on('checking-for-update', () => {
     setState({
