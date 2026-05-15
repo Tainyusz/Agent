@@ -13,6 +13,7 @@ import type { AppUpdateInfo, AppUpdateProgress, AppUpdateState } from '@proma/sh
 import { setQuitting } from './app-lifecycle'
 
 const APP_UPDATE_FEED_URL = 'https://open.wxqsai.com/updates/agent/mac'
+const APP_UPDATE_FRIENDLY_ERROR = '哎呀，有点小问题 晚点再试试吧～'
 
 let windowProvider: (() => BrowserWindow | null) | null = null
 let initialized = false
@@ -42,9 +43,12 @@ function progressToState(info: ProgressInfo): AppUpdateProgress {
   }
 }
 
-function errorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message
-  return String(error)
+function logUpdateError(context: string, error: unknown): void {
+  console.warn(`[自动更新] ${context}:`, error)
+}
+
+function friendlyUpdateErrorMessage(): string {
+  return APP_UPDATE_FRIENDLY_ERROR
 }
 
 function setState(next: Partial<AppUpdateState>): AppUpdateState {
@@ -129,9 +133,10 @@ export function initializeAppUpdater(getWindow: () => BrowserWindow | null): voi
   })
 
   autoUpdater.on('error', (error) => {
+    logUpdateError('检查失败', error)
     setState({
       status: 'error',
-      error: errorMessage(error),
+      error: friendlyUpdateErrorMessage(),
       progress: undefined,
       manual: activeManualCheck,
       checkedAt: new Date().toISOString(),
@@ -155,9 +160,10 @@ export async function checkForAppUpdate(manual = false): Promise<AppUpdateState>
     await autoUpdater.checkForUpdates()
     return state
   } catch (error) {
+    logUpdateError('检查异常', error)
     return setState({
       status: 'error',
-      error: errorMessage(error),
+      error: friendlyUpdateErrorMessage(),
       progress: undefined,
       manual,
       checkedAt: new Date().toISOString(),

@@ -26,6 +26,7 @@ import wechatQrCode from '../../../../../../宇哥微信.jpg'
 /** 从 package.json 构建时由 Vite define 注入 */
 declare const __APP_VERSION__: string
 const APP_VERSION = __APP_VERSION__
+const UPDATE_FRIENDLY_ERROR = '哎呀，有点小问题 晚点再试试吧～'
 
 function updateStatusText(state: AppUpdateState | null): string {
   if (!state) return '尚未检查'
@@ -41,7 +42,7 @@ function updateStatusText(state: AppUpdateState | null): string {
     case 'not-available':
       return '当前已是最新版本'
     case 'error':
-      return state.error || '检查更新失败'
+      return UPDATE_FRIENDLY_ERROR
     default:
       return '尚未检查'
   }
@@ -74,8 +75,8 @@ function AppUpdateCard(): React.ReactElement {
     try {
       const next = await window.electronAPI.checkForAppUpdate(true)
       setState(next)
-    } catch (error) {
-      toast.error('检查更新失败', { description: String(error) })
+    } catch {
+      toast.error(UPDATE_FRIENDLY_ERROR)
     } finally {
       setIsChecking(false)
     }

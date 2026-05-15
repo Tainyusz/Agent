@@ -69,6 +69,7 @@ const isQuickTaskWindow = new URLSearchParams(window.location.search).get('windo
 const isVoiceDictationWindow = new URLSearchParams(window.location.search).get('window') === 'voice-dictation'
 const isDetachedPreviewWindow = new URLSearchParams(window.location.search).get('window') === 'detached-preview'
 const shownUpdateToastKeys = new Set<string>()
+const UPDATE_FRIENDLY_ERROR = '哎呀，有点小问题 晚点再试试吧～'
 
 /**
  * 主题初始化组件
@@ -193,9 +194,7 @@ function UpdateNotificationsInitializer(): null {
       }
 
       if (state.status === 'error' && state.manual) {
-        toast.error('检查更新失败', {
-          description: state.error || '请稍后重试',
-        })
+        toast.error(UPDATE_FRIENDLY_ERROR)
       }
     }
 
