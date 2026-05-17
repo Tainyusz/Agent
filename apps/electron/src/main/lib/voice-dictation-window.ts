@@ -20,12 +20,16 @@ let voiceDictationShowPending = false
 let suppressPositionPersistence = false
 let suppressPositionPersistenceTimer: ReturnType<typeof setTimeout> | null = null
 let positionSaveTimer: ReturnType<typeof setTimeout> | null = null
+let lastToggleAt = 0
+let lastShownAt = 0
 
 const WINDOW_WIDTH = 480
 const WINDOW_HEIGHT = 160
 const MIN_WINDOW_HEIGHT = 148
 const WINDOW_MARGIN = 12
 const ACTIVATE_SUPPRESSION_MS = 1800
+const TOGGLE_DEBOUNCE_MS = 260
+const MIN_STOP_AFTER_SHOW_MS = process.platform === 'win32' ? 900 : 450
 const POSITION_SAVE_DEBOUNCE_MS = 240
 const VOICE_DICTATION_PARTITION = 'voice-dictation'
 
@@ -97,9 +101,21 @@ export function createVoiceDictationWindow(): void {
 }
 
 export function toggleVoiceDictationWindow(options: VoiceDictationToggleOptions = {}): void {
+  const now = Date.now()
+  if (now - lastToggleAt < TOGGLE_DEBOUNCE_MS) {
+    console.log('[语音输入] 忽略重复快捷键触发')
+    return
+  }
+  lastToggleAt = now
+
   const win = voiceDictationWindow && !voiceDictationWindow.isDestroyed() ? voiceDictationWindow : null
 
   if (win?.isVisible()) {
+    if (now - lastShownAt < MIN_STOP_AFTER_SHOW_MS) {
+      lastShownAt = now
+      console.log('[语音输入] 浮窗刚唤起，忽略快捷键抖动停止请求')
+      return
+    }
     win.webContents.send(VOICE_DICTATION_IPC_CHANNELS.TOGGLE_STOP)
     return
   }
@@ -213,6 +229,7 @@ function positionAndShow(): void {
 
   // 语音浮窗只是系统级提示层，不应抢焦点或改变 Proma 主窗口前后台状态。
   voiceDictationWindow.showInactive()
+  lastShownAt = Date.now()
   voiceDictationWindow.webContents.send(VOICE_DICTATION_IPC_CHANNELS.SHOWN)
 }
 

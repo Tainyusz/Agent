@@ -54,8 +54,16 @@ export function createFileMentionSuggestion(
           additionalPaths.length > 0 ? additionalPaths : undefined,
           sessionPaths.length > 0 ? sessionPaths : undefined,
         )
-        lastResult = result
-        return result.entries
+        const sessionEntries = Array.isArray(result.sessionEntries) ? result.sessionEntries : []
+        const workspaceEntries = Array.isArray(result.workspaceEntries) ? result.workspaceEntries : []
+        const entries = Array.isArray(result.entries) ? result.entries : [...sessionEntries, ...workspaceEntries]
+        lastResult = {
+          ...result,
+          entries,
+          sessionEntries,
+          workspaceEntries,
+        }
+        return entries
       } catch(e) {
         console.error('[FileMention] search failed:', e)
         lastResult = null
@@ -76,13 +84,17 @@ export function createFileMentionSuggestion(
         }
       }
 
+      function getItemCount(props: SuggestionProps<FileIndexEntry>): number {
+        return Array.isArray(props.items) ? props.items.length : 0
+      }
+
       function createRenderer(props: SuggestionProps<FileIndexEntry>) {
         const { sessionEntries, workspaceEntries } = splitEntries(lastResult)
         renderer = new ReactRenderer(FileMentionList, {
           props: {
             sessionEntries,
             workspaceEntries,
-            onSelect: (item: { name: string; path: string; type: 'file' | 'dir' }) => {
+            onSelect: (item: FileIndexEntry) => {
               props.command({ id: item.path, label: item.name })
             },
           },
@@ -98,7 +110,7 @@ export function createFileMentionSuggestion(
       return {
         onStart(props) {
           mentionActiveRef.current = true
-          if (mentionItemCountRef) mentionItemCountRef.current = props.items.length
+          if (mentionItemCountRef) mentionItemCountRef.current = getItemCount(props)
 
           try {
             latestClientRect = props.clientRect
@@ -116,14 +128,14 @@ export function createFileMentionSuggestion(
         },
 
         onUpdate(props) {
-          if (mentionItemCountRef) mentionItemCountRef.current = props.items.length
+          if (mentionItemCountRef) mentionItemCountRef.current = getItemCount(props)
           latestClientRect = props.clientRect
 
           const { sessionEntries, workspaceEntries } = splitEntries(lastResult)
           renderer?.updateProps({
             sessionEntries,
             workspaceEntries,
-            onSelect: (item: { name: string; path: string; type: 'file' | 'dir' }) => {
+            onSelect: (item: FileIndexEntry) => {
               props.command({ id: item.path, label: item.name })
             },
           })

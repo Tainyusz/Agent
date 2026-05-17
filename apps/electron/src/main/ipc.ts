@@ -151,7 +151,7 @@ import {
   openFileDialog,
 } from './lib/attachment-service'
 import { extractTextFromAttachment } from './lib/document-parser'
-import { getTutorialContent, createWelcomeConversation } from './lib/tutorial-service'
+import { getTutorialContent } from './lib/tutorial-service'
 import { getUserProfile, updateUserProfile } from './lib/user-profile-service'
 import { getSettings, updateSettings } from './lib/settings-service'
 import { setDockBadgeCount } from './lib/dock-badge-service'
@@ -759,16 +759,6 @@ export function registerIpcHandlers(): void {
     CHAT_IPC_CHANNELS.GET_TUTORIAL_CONTENT,
     async (): Promise<string | null> => {
       return getTutorialContent()
-    }
-  )
-
-  // 创建欢迎对话（含教程附件）
-  ipcMain.handle(
-    CHAT_IPC_CHANNELS.CREATE_WELCOME_CONVERSATION,
-    async (): Promise<ConversationMeta | null> => {
-      const conversation = createWelcomeConversation()
-      if (conversation) scheduleAutoSaveConversation(conversation.id)
-      return conversation
     }
   )
 

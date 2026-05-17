@@ -96,6 +96,9 @@ mac:
   target:
     - dmg
     - zip
+  publish:
+    provider: generic
+    url: https://nanopro.wxqsai.com/updates/agent/mac
 
 # DMG 配置
 dmg:
@@ -126,6 +129,9 @@ win:
     - target: nsis
       arch:
         - x64
+  publish:
+    provider: generic
+    url: https://nanopro.wxqsai.com/updates/agent/win
 
 # NSIS 安装程序配置
 nsis:
@@ -136,9 +142,7 @@ nsis:
 
 # ============================================
 # 发布配置
-# 自动更新文件需要上传到这个静态目录：
-# https://open.wxqsai.com/updates/agent/mac/
+# 自动更新文件按平台上传到：
+# macOS:   https://nanopro.wxqsai.com/updates/agent/mac/
+# Windows: https://nanopro.wxqsai.com/updates/agent/win/
 # ============================================
-publish:
-  provider: generic
-  url: https://open.wxqsai.com/updates/agent/mac

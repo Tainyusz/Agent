@@ -3,6 +3,9 @@ const { execFileSync } = require('node:child_process')
 const { existsSync, readdirSync } = require('node:fs')
 const { join, resolve } = require('node:path')
 
+const APP_BUNDLE_ID = 'com.wuxianqingsong.app'
+const INTERNAL_AD_HOC_REQUIREMENT = `=designated => identifier "${APP_BUNDLE_ID}"`
+
 function run(command, args, options = {}) {
   execFileSync(command, args, { stdio: 'inherit', ...options })
 }
@@ -55,7 +58,14 @@ exports.default = async function afterSign(context) {
     preAutoEntitlements: false,
     strictVerify: false,
     optionsForFile: (filePath) => {
-      if (filePath === appPath || filePath.endsWith('.app')) {
+      if (filePath === appPath) {
+        return {
+          entitlements,
+          hardenedRuntime: true,
+          requirements: INTERNAL_AD_HOC_REQUIREMENT,
+        }
+      }
+      if (filePath.endsWith('.app')) {
         return {
           entitlements,
           hardenedRuntime: true,

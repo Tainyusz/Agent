@@ -32,6 +32,7 @@ export function VoiceDictationApp(): React.ReactElement {
   const stoppingRef = React.useRef(false)
   const cancelledRef = React.useRef(false)
   const commitInFlightRef = React.useRef(false)
+  const startInFlightRef = React.useRef(false)
 
   const {
     rootRef,
@@ -74,6 +75,7 @@ export function VoiceDictationApp(): React.ReactElement {
     audioContextRef.current = null
     streamRef.current?.getTracks().forEach((track) => track.stop())
     streamRef.current = null
+    startInFlightRef.current = false
     setVolume(0)
   }, [])
 
@@ -147,6 +149,7 @@ export function VoiceDictationApp(): React.ReactElement {
 
   const stopRecording = React.useCallback(async () => {
     if (stoppingRef.current) return
+    if (startInFlightRef.current && !sessionIdRef.current) return
     stoppingRef.current = true
     setStatus('stopping')
     setMessage('正在收尾识别...')
@@ -213,6 +216,10 @@ export function VoiceDictationApp(): React.ReactElement {
   }, [])
 
   const startRecording = React.useCallback(async () => {
+    if (startInFlightRef.current || streamRef.current || commitInFlightRef.current) {
+      return
+    }
+    startInFlightRef.current = true
     cancelledRef.current = false
     stoppingRef.current = false
     commitInFlightRef.current = false
@@ -226,6 +233,7 @@ export function VoiceDictationApp(): React.ReactElement {
 
     const permission = await window.electronAPI.checkMicrophonePermission()
     if (permission.status === 'denied') {
+      startInFlightRef.current = false
       setStatus('error')
       setMessage('麦克风权限已被系统阻止，请在系统设置中允许无限轻松访问麦克风')
       return
@@ -233,6 +241,7 @@ export function VoiceDictationApp(): React.ReactElement {
     if (permission.status === 'not-determined') {
       const requested = await window.electronAPI.requestMicrophonePermission()
       if (requested.status !== 'granted') {
+        startInFlightRef.current = false
         setStatus('error')
         setMessage('需要麦克风权限才能使用语音输入')
         return
@@ -254,9 +263,11 @@ export function VoiceDictationApp(): React.ReactElement {
       })
       streamRef.current = stream
       startAudioCapture(stream)
+      startInFlightRef.current = false
       setStatus('recording')
       setMessage('正在听写')
     } catch (error) {
+      startInFlightRef.current = false
       cleanupAudio()
       const textMessage = error instanceof Error ? error.message : '未知错误'
       setStatus('error')

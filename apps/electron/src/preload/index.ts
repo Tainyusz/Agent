@@ -241,9 +241,6 @@ export interface ElectronAPI {
   /** 获取教程内容 */
   getTutorialContent: () => Promise<string | null>
 
-  /** 创建欢迎对话（含教程附件） */
-  createWelcomeConversation: () => Promise<ConversationMeta | null>
-
   // ===== 消息发送 =====
 
   /** 发送消息（触发 AI 流式响应） */
@@ -1058,10 +1055,6 @@ const electronAPI: ElectronAPI = {
   // 教程
   getTutorialContent: () => {
     return ipcRenderer.invoke(CHAT_IPC_CHANNELS.GET_TUTORIAL_CONTENT)
-  },
-
-  createWelcomeConversation: () => {
-    return ipcRenderer.invoke(CHAT_IPC_CHANNELS.CREATE_WELCOME_CONVERSATION)
   },
 
   // 消息发送
